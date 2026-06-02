@@ -1,0 +1,33 @@
+server:
+  port: 8080
+  host: 127.0.0.1
+  base_url: https://panel.yourdomain.com
+
+auth:
+  github_client_id: YOUR_GITHUB_CLIENT_ID
+  github_client_secret: YOUR_GITHUB_CLIENT_SECRET
+  jwt_secret: CHANGE_ME_32_CHARS_MINIMUM_RANDOM
+  allowed_users:
+    - your-github-username
+
+db:
+  path: /var/panel/panel.db
+
+storage:
+  apps_dir: /var/panel/apps
+  backups_dir: /var/panel/backups
+  keys_dir: /var/panel/keys
+
+caddy:
+  admin_api: http://localhost:2019
+
+encryption:
+  key: CHANGE_ME_32_CHARS_AES_KEY
+
+# S3 / Restic backup settings (configure via Settings UI or here)
+s3:
+  endpoint: https://s3.amazonaws.com
+  bucket: my-panel-backups
+  access_key: ""
+  secret_key: ""
+  region: us-east-1

@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  host: 127.0.0.1
+  base_url: http://localhost:5173
+
+auth:
+  github_client_id: Ov23liQEwwyifrLjsxOV
+  github_client_secret: 1fa0d745fd3ab7d95726aba9a9e2c6e4cbe6552a
+  jwt_secret: dev-jwt-secret-change-in-production-32chars
+  allowed_users:
+    - alihammad99
+
+db:
+  path: /tmp/panel-dev.db
+
+storage:
+  apps_dir: /tmp/panel-apps
+  backups_dir: /tmp/panel-backups
+  keys_dir: /tmp/panel-keys
+
+caddy:
+  admin_api: http://localhost:2019
+
+encryption:
+  key: dev-encryption-key-change-in-prod!!

@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-panel-bg text-panel-heading font-sans antialiased;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(129, 140, 248, 0.04), transparent);
+    background-attachment: fixed;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-panel-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-panel-muted;
+  }
+
+  ::selection {
+    background: rgba(129, 140, 248, 0.25);
+  }
+}
+
+@layer components {
+
+  /* Glassmorphism card */
+  .card {
+    @apply bg-panel-card/80 backdrop-blur-sm border border-panel-border rounded-xl p-5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  }
+
+  .card:hover {
+    border-color: rgba(129, 140, 248, 0.15);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(129, 140, 248, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* Elevated card for modals/prominent elements */
+  .card-elevated {
+    @apply bg-panel-elevated/90 backdrop-blur-md border border-panel-border rounded-xl p-5;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+
+  /* Base button */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Primary — indigo gradient with glow */
+  .btn-primary {
+    @apply btn text-white relative overflow-hidden;
+    background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99, 102, 241, 0.2);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.5), 0 4px 16px rgba(99, 102, 241, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  /* Ghost — subtle with border glow on hover */
+  .btn-ghost {
+    @apply btn bg-panel-surface text-panel-muted hover:text-panel-heading border border-panel-border;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .btn-ghost:hover {
+    @apply border-panel-border-hover bg-white/[0.03];
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 12px rgba(129, 140, 248, 0.06);
+  }
+
+  /* Danger — rose */
+  .btn-danger {
+    @apply btn text-panel-danger border border-panel-danger/20;
+    background: linear-gradient(135deg, rgba(251, 113, 133, 0.08) 0%, rgba(251, 113, 133, 0.04) 100%);
+    box-shadow: inset 0 1px 0 rgba(251, 113, 133, 0.05);
+  }
+
+  .btn-danger:hover {
+    background: linear-gradient(135deg, rgba(251, 113, 133, 0.15) 0%, rgba(251, 113, 133, 0.08) 100%);
+    border-color: rgba(251, 113, 133, 0.3);
+  }
+
+  /* Success — emerald */
+  .btn-success {
+    @apply btn text-panel-success border border-panel-success/20;
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, rgba(52, 211, 153, 0.04) 100%);
+    box-shadow: inset 0 1px 0 rgba(52, 211, 153, 0.05);
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+    border-color: rgba(52, 211, 153, 0.3);
+  }
+
+  /* Input — glass with focus ring */
+  .input {
+    @apply w-full bg-panel-surface border border-panel-border rounded-lg px-3 py-2.5 text-sm text-panel-heading placeholder:text-panel-muted/60 focus:outline-none transition-all duration-150;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.02);
+  }
+
+  .input:focus {
+    @apply border-panel-accent/50;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(129, 140, 248, 0.1), 0 1px 0 rgba(255, 255, 255, 0.02);
+  }
+
+  .input::placeholder {
+    color: rgba(107, 114, 128, 0.5);
+  }
+
+  .label {
+    @apply block text-[11px] font-semibold text-panel-muted mb-1.5 uppercase tracking-wider;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold;
+  }
+
+  .badge-success {
+    @apply badge;
+    background: rgba(52, 211, 153, 0.1);
+    color: #34d399;
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.15);
+  }
+
+  .badge-warning {
+    @apply badge;
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.15);
+  }
+
+  .badge-danger {
+    @apply badge;
+    background: rgba(251, 113, 133, 0.1);
+    color: #fb7185;
+    box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.15);
+  }
+
+  .badge-muted {
+    @apply badge bg-white/[0.04] text-panel-muted;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  .badge-accent {
+    @apply badge;
+    background: rgba(129, 140, 248, 0.1);
+    color: #818cf8;
+    box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.15);
+  }
+
+  /* Page header */
+  .page-header {
+    @apply flex items-end justify-between mb-8 pb-4 border-b border-panel-border/50;
+  }
+
+  /* Section divider with text */
+  .section-divider {
+    @apply flex items-center gap-3 my-6;
+  }
+
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-gradient-to-r from-transparent via-panel-border to-transparent;
+  }
+
+  /* Animated status dot */
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  .status-dot-pulse {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Table row hover */
+  .table-row-hover {
+    @apply transition-colors duration-100;
+  }
+
+  .table-row-hover:hover {
+    background: rgba(129, 140, 248, 0.03);
+  }
+
+  /* Subtle gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #e2e8f0 0%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
