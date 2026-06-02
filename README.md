@@ -1,4 +1,4 @@
-# Panel — Self-Hosted Deployment Platform
+# SoloPanel — Self-Hosted Deployment Platform
 
 A lightweight VPS deployment panel. Deploy apps from GitHub, manage Docker containers, handle SSL/domains via Caddy, backup to S3, and monitor resources — all from a clean UI.
 
