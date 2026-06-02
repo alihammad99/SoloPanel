@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #0f0f11;
+    color: #f4f4f5;
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(135deg, #00e676 0%, #00b83d 40%, #76ff03 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-text-alt {
+    background: linear-gradient(135deg, #00e676 0%, #29b6f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(135deg, #00e676 0%, #00b83d 40%, #76ff03 100%);
+  }
+
+  .gradient-border {
+    border-image: linear-gradient(135deg, #00e676, #76ff03) 1;
+  }
+
+  .hero-glow {
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 230, 118, 0.18), transparent);
+  }
+
+  .card-hover {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 24px 48px -12px rgba(0, 230, 118, 0.15);
+    border-color: rgba(0, 230, 118, 0.3);
+  }
+
+  .glass {
+    background: rgba(15, 15, 17, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
