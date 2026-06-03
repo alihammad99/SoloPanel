@@ -6,10 +6,11 @@ import (
 )
 
 type TechStack struct {
-	Name      string
-	BuildCmd  string
-	StartCmd  string
-	Runtime   string
+	Name       string
+	Tool       string
+	BuildCmd   string
+	StartCmd   string
+	Runtime    string
 	InstallCmd string
 }
 
@@ -37,14 +38,16 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("Dockerfile"):
 		return TechStack{
 			Name:     "docker",
+			Tool:     "docker",
 			BuildCmd: "docker build -t {{APP_NAME}} .",
-			StartCmd: "docker run -d --name {{APP_NAME}} {{APP_NAME}}",
+			StartCmd: "docker run --rm {{PORT_MAPPING}} --name {{APP_NAME}} {{APP_NAME}}",
 			Runtime:  "docker",
 		}
 
 	case has("docker-compose.yml") || has("docker-compose.yaml"):
 		return TechStack{
 			Name:     "docker-compose",
+			Tool:     "docker",
 			BuildCmd: "docker compose build",
 			StartCmd: "docker compose up -d",
 			Runtime:  "docker-compose",
@@ -53,6 +56,7 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("go.mod"):
 		return TechStack{
 			Name:     "go",
+			Tool:     "go",
 			BuildCmd: "go build -o app .",
 			StartCmd: "./app",
 			Runtime:  "go",
@@ -61,6 +65,7 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("pyproject.toml"):
 		return TechStack{
 			Name:       "python",
+			Tool:       "pip",
 			InstallCmd: "pip install -e .",
 			BuildCmd:   "",
 			StartCmd:   "python -m uvicorn main:app --host 0.0.0.0 --port {{PORT}}",
@@ -70,6 +75,7 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("requirements.txt"):
 		return TechStack{
 			Name:       "python",
+			Tool:       "pip",
 			InstallCmd: "pip install -r requirements.txt",
 			BuildCmd:   "",
 			StartCmd:   "python main.py",
@@ -79,6 +85,7 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("Gemfile"):
 		return TechStack{
 			Name:       "ruby",
+			Tool:       "bundler",
 			InstallCmd: "bundle install",
 			BuildCmd:   "",
 			StartCmd:   "bundle exec ruby app.rb",
@@ -88,6 +95,7 @@ func DetectTechStack(repoPath string) TechStack {
 	case has("Cargo.toml"):
 		return TechStack{
 			Name:     "rust",
+			Tool:     "cargo",
 			BuildCmd: "cargo build --release",
 			StartCmd: "./target/release/app",
 			Runtime:  "rust",
@@ -100,12 +108,14 @@ func DetectTechStack(repoPath string) TechStack {
 		if pkgManager == "bun" {
 			startCmd = "bun run " + entrypoint
 		}
-		pkgName := pkgManager
-		if pkgManager == "bun" {
-			pkgName = "bun"
+		framework := detectJSFramework(repoPath)
+		stackName := framework
+		if stackName == "" {
+			stackName = pkgManager
 		}
 		return TechStack{
-			Name:       pkgName,
+			Name:       stackName,
+			Tool:       pkgManager,
 			InstallCmd: installCmd,
 			BuildCmd:   buildCmd,
 			StartCmd:   startCmd,
@@ -117,6 +127,36 @@ func DetectTechStack(repoPath string) TechStack {
 			Name:    "unknown",
 			Runtime: "unknown",
 		}
+	}
+}
+
+func detectJSFramework(repoPath string) string {
+	data, err := os.ReadFile(filepath.Join(repoPath, "package.json"))
+	if err != nil {
+		return ""
+	}
+	c := string(data)
+	switch {
+	case contains(c, `"next"`):
+		return "next"
+	case contains(c, `"nuxt"`):
+		return "nuxt"
+	case contains(c, `"@remix-run/`):
+		return "remix"
+	case contains(c, `"astro"`):
+		return "astro"
+	case contains(c, `"@sveltejs/`), contains(c, `"svelte"`):
+		return "svelte"
+	case contains(c, `"@angular/core"`):
+		return "angular"
+	case contains(c, `"vite"`):
+		return "vite"
+	case contains(c, `"react"`):
+		return "react"
+	case contains(c, `"vue"`):
+		return "vue"
+	default:
+		return ""
 	}
 }
 
@@ -148,7 +188,7 @@ func detectJSBuildCmd(repoPath, pkgManager string) string {
 
 	// If build script contains "tsc &&" pattern (type-check then vite),
 	// patch it to skip tsc and go straight to vite build
-	if (contains(content, `"tsc &&`) || contains(content, `"tsc -p`) ) &&
+	if (contains(content, `"tsc &&`) || contains(content, `"tsc -p`)) &&
 		contains(content, "vite") {
 		return `npx vite build`
 	}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks'
 import { Cpu, MemoryStick, HardDrive, Wifi } from 'lucide-preact'
 import { streamSSE } from '../api/client'
 
-function SparkLine({ data, color = '#6366f1', height = 32 }) {
+function SparkLine({ data, color = '#2563eb', height = 32 }) {
   const max = Math.max(...data, 1)
   const points = data.map((v, i) => {
     const x = (i / (data.length - 1)) * 100
@@ -95,7 +95,7 @@ export function ResourceMonitor() {
         label="CPU"
         value={metrics.cpu.toFixed(1) + '%'}
         history={history.current.cpu}
-        color="#6366f1"
+        color="#2563eb"
       />
       <MetricCard
         icon={MemoryStick}

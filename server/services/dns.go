@@ -20,10 +20,7 @@ func VerifyDomainDNS(domain string) DNSVerifyResult {
 	result := DNSVerifyResult{Domain: domain}
 
 	// Strip wildcard prefix for DNS lookup
-	lookupDomain := domain
-	if strings.HasPrefix(lookupDomain, "*.") {
-		lookupDomain = strings.TrimPrefix(lookupDomain, "*.")
-	}
+	lookupDomain := strings.TrimPrefix(domain, "*.")
 
 	// Get this server's public IP
 	serverIP := getPublicIP()

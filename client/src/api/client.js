@@ -13,7 +13,12 @@ async function req(method, path, body) {
     return
   }
   const text = await res.text()
-  try { return JSON.parse(text) } catch { return text }
+  let data
+  try { data = JSON.parse(text) } catch { data = text }
+  if (!res.ok && data !== null && typeof data === 'object') {
+    data._status = res.status
+  }
+  return data
 }
 
 export const api = {
@@ -41,6 +46,9 @@ export const api = {
     update: (id, b) => api.put(`/apps/${id}`, b),
     delete: (id) => api.delete(`/apps/${id}`),
     deploy: (id) => api.post(`/apps/${id}/deploy`, {}),
+    cancel: (id) => api.post(`/apps/${id}/cancel`, {}),
+    stop: (id) => api.post(`/apps/${id}/stop`, {}),
+    rollbackPath: (id) => `/apps/${id}/rollback`,
     deployments: (id) => api.get(`/apps/${id}/deployments`),
     env: (id) => api.get(`/apps/${id}/env`),
     deployKey: (id) => api.get(`/apps/${id}/deploy-key`),
@@ -96,6 +104,7 @@ export const api = {
 
   github: {
     repos: (page = 1) => api.get(`/github/repos?page=${page}`),
+    branches: (owner, repo) => api.get(`/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`),
   },
 
   metrics: {

@@ -43,19 +43,19 @@ func handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find app by repo URL (match ssh or https variant)
+	// Find app by repo URL — match all four canonical variants (ssh/https × .git/no .git)
 	sshURL := payload.Repository.SSHURL
 	htmlURL := payload.Repository.HTMLURL
+	candidates := []string{
+		sshURL,
+		htmlURL,
+		strings.TrimSuffix(sshURL, ".git"),
+		strings.TrimSuffix(htmlURL, ".git"),
+	}
 	var app db.App
-	result := db.DB.Where("repo_url = ? OR repo_url = ?", sshURL, htmlURL).First(&app)
-	if result.Error != nil {
-		// Try partial match stripping .git suffix
-		bare := strings.TrimSuffix(sshURL, ".git")
-		result = db.DB.Where("repo_url LIKE ?", "%"+bare+"%").First(&app)
-		if result.Error != nil {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+	if err := db.DB.Where("repo_url IN ?", candidates).First(&app).Error; err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
 	// Verify webhook secret if configured

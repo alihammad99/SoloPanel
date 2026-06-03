@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,12 +29,6 @@ func objectPath(bucketName, key string) string {
 	return filepath.Join(bucketDir(bucketName), filepath.Clean("/"+key))
 }
 
-func randomToken() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
 // ── Buckets ──────────────────────────────────────────────────────────────────
 
 func handleListBuckets(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +52,7 @@ func handleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	var u db.User
 	db.DB.Where("username = ?", claims.Username).First(&u)
 
-	bucket := db.Bucket{Name: input.Name, Public: input.Public, UserID: u.ID, UploadToken: randomToken(), ReadToken: randomToken()}
+	bucket := db.Bucket{Name: input.Name, Public: input.Public, UserID: u.ID, UploadToken: db.RandomToken(), ReadToken: db.RandomToken()}
 	if err := db.DB.Create(&bucket).Error; err != nil {
 		writeError(w, "bucket already exists", http.StatusConflict)
 		return
@@ -74,7 +66,10 @@ func handleUpdateBucket(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Public bool `json:"public"`
 	}
-	json.NewDecoder(r.Body).Decode(&input)
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, "invalid input", http.StatusBadRequest)
+		return
+	}
 
 	db.DB.Model(&db.Bucket{}).Where("id = ?", id).Update("public", input.Public)
 	var bucket db.Bucket
@@ -169,7 +164,7 @@ func handleUploadObject(w http.ResponseWriter, r *http.Request) {
 				OrigName:    fh.Filename,
 				ContentType: ct,
 				Size:        n,
-				ShareToken:  randomToken(),
+				ShareToken:  db.RandomToken(),
 				Public:      bucket.Public,
 			}
 			db.DB.Create(&obj)
@@ -334,7 +329,7 @@ func handleGetShareLink(w http.ResponseWriter, r *http.Request) {
 		shareURL = fmt.Sprintf("%s/api/storage/files/%s/%s", baseURL, bucket.Name, obj.Key)
 	} else {
 		if obj.ShareToken == "" {
-			obj.ShareToken = randomToken()
+			obj.ShareToken = db.RandomToken()
 			db.DB.Model(&obj).Update("share_token", obj.ShareToken)
 		}
 		shareURL = fmt.Sprintf("%s/api/storage/share/%s", baseURL, obj.ShareToken)
@@ -500,7 +495,7 @@ func handlePublicUpload(w http.ResponseWriter, r *http.Request) {
 				OrigName:    fh.Filename,
 				ContentType: ct,
 				Size:        n,
-				ShareToken:  randomToken(),
+				ShareToken:  db.RandomToken(),
 				Public:      bucket.Public,
 			}
 			db.DB.Create(&obj)
@@ -518,7 +513,7 @@ func handlePublicUpload(w http.ResponseWriter, r *http.Request) {
 // Regenerate upload token for a bucket
 func handleRegenerateUploadToken(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
-	token := randomToken()
+	token := db.RandomToken()
 	db.DB.Model(&db.Bucket{}).Where("id = ?", id).Update("upload_token", token)
 	var bucket db.Bucket
 	db.DB.First(&bucket, id)
@@ -528,7 +523,7 @@ func handleRegenerateUploadToken(w http.ResponseWriter, r *http.Request) {
 // Regenerate read token for a bucket
 func handleRegenerateReadToken(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
-	token := randomToken()
+	token := db.RandomToken()
 	db.DB.Model(&db.Bucket{}).Where("id = ?", id).Update("read_token", token)
 	var bucket db.Bucket
 	db.DB.First(&bucket, id)

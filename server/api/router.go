@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -30,6 +31,8 @@ func NewRouter() http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/webhook/github", handleGithubWebhook)
+		r.Get("/preview/{slug}", handleAppPreview)
+		r.Get("/preview/{slug}/*", handleAppPreview)
 		r.Get("/storage/share/{token}", handleServeSharedFile)
 		r.Get("/storage/preview/{token}", handlePreviewSharedFile)
 		r.Get("/storage/files/{bucketName}/*", handleServeFileByKey)
@@ -61,6 +64,9 @@ func NewRouter() http.Handler {
 				r.Put("/{id}", handleUpdateApp)
 				r.Delete("/{id}", handleDeleteApp)
 				r.Post("/{id}/deploy", handleDeployApp)
+				r.Post("/{id}/cancel", handleCancelDeploy)
+				r.Get("/{id}/rollback", handleRollbackApp)
+				r.Post("/{id}/stop", handleStopApp)
 				r.Get("/{id}/deployments", handleListDeployments)
 				r.Get("/{id}/deployments/{deployID}/log", handleGetDeploymentLog)
 				r.Get("/{id}/env", handleGetEnvVars)
@@ -140,6 +146,7 @@ func NewRouter() http.Handler {
 			})
 
 			r.Get("/github/repos", handleGithubRepos)
+			r.Get("/github/branches", handleGithubBranches)
 			r.Get("/version", handleVersion)
 			r.Post("/system/update", handleSelfUpdate)
 		})
@@ -150,11 +157,15 @@ func NewRouter() http.Handler {
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("writeJSON encode error: %v", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, msg string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		log.Printf("writeError encode error: %v", err)
+	}
 }

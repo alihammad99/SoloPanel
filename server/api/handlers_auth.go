@@ -1,13 +1,100 @@
 package api
 
 import (
+	"io"
+	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/panel/backend/auth"
 	"github.com/panel/backend/config"
 	"github.com/panel/backend/db"
+	"github.com/panel/backend/services"
 )
+
+func detectOutboundIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	return conn.LocalAddr().(*net.UDPAddr).IP.String()
+}
+
+var (
+	cachedPublicIP   string
+	cachedPublicIPMu sync.RWMutex
+)
+
+func detectPublicIP() string {
+	cachedPublicIPMu.RLock()
+	if cachedPublicIP != "" {
+		ip := cachedPublicIP
+		cachedPublicIPMu.RUnlock()
+		return ip
+	}
+	cachedPublicIPMu.RUnlock()
+
+	ipProviders := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me/ip",
+		"https://icanhazip.com",
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	var resolved string
+	for _, svc := range ipProviders {
+		resp, err := client.Get(svc)
+		if err != nil {
+			continue
+		}
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+		resp.Body.Close()
+		if err != nil {
+			continue
+		}
+		ip := strings.TrimSpace(string(body))
+		if net.ParseIP(ip) != nil {
+			resolved = ip
+			break
+		}
+	}
+	if resolved == "" {
+		resolved = detectOutboundIP()
+	}
+	cachedPublicIPMu.Lock()
+	cachedPublicIP = resolved
+	cachedPublicIPMu.Unlock()
+	return resolved
+}
+
+// storeGHToken encrypts (when a key is configured) and persists the GitHub OAuth
+// token for the given username. Use loadGHToken to retrieve it.
+func storeGHToken(username, token string) {
+	val := token
+	if config.C.Encryption.Key != "" {
+		if enc, err := services.Encrypt(token, config.C.Encryption.Key); err == nil {
+			val = enc
+		}
+	}
+	db.SetSetting("gh_token_"+username, val)
+}
+
+// loadGHToken retrieves and decrypts the stored GitHub OAuth token. Falls back
+// to treating the stored value as plaintext for backward compatibility.
+func loadGHToken(username string) string {
+	val := db.GetSetting("gh_token_" + username)
+	if val == "" {
+		return ""
+	}
+	if config.C.Encryption.Key != "" {
+		if dec, err := services.Decrypt(val, config.C.Encryption.Key); err == nil {
+			return dec
+		}
+	}
+	return val
+}
 
 func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	state := auth.GenerateState()
@@ -60,8 +147,8 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Store the GitHub token server-side so repos can be fetched without exposing it to the browser
-	db.SetSetting("gh_token_"+user.Username, token.AccessToken)
+	// Store the GitHub token server-side (encrypted) so repos can be fetched without exposing it to the browser
+	storeGHToken(user.Username, token.AccessToken)
 
 	jwt, err := auth.IssueJWT(user)
 	if err != nil {
@@ -69,12 +156,15 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" ||
+		strings.HasPrefix(config.C.Server.BaseURL, "https://")
 	http.SetCookie(w, &http.Cookie{
 		Name:     "panel_token",
 		Value:    jwt,
 		Path:     "/",
 		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
+		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -82,12 +172,15 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuthLogout(w http.ResponseWriter, r *http.Request) {
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" ||
+		strings.HasPrefix(config.C.Server.BaseURL, "https://")
 	http.SetCookie(w, &http.Cookie{
 		Name:     "panel_token",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   isSecure,
 	})
 	writeJSON(w, map[string]string{"message": "logged out"})
 }
@@ -100,5 +193,20 @@ func handleAuthMe(w http.ResponseWriter, r *http.Request) {
 		"username":  claims.Username,
 		"avatar":    claims.Avatar,
 		"has_token": hasToken,
+		"base_url":  config.C.Server.BaseURL,
+		"server_host": func() string {
+			if config.C.Server.BaseURL != "" {
+				return config.C.Server.BaseURL
+			}
+			host := r.Host
+			if host == "" {
+				return ""
+			}
+			scheme := "http"
+			if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			return scheme + "://" + host
+		}(),
 	})
 }

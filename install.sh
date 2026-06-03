@@ -178,7 +178,7 @@ section "Building Panel"
 REPO_DIR=$(mktemp -d)
 info "Cloning panel source..."
 
-if [ -d "$(dirname "$0")/backend" ]; then
+if [ -d "$(dirname "$0")/server" ]; then
   info "Using local source"
   REPO_DIR="$(dirname "$0")"
 else
@@ -189,7 +189,7 @@ export PATH=$PATH:/usr/local/go/bin
 export HOME=/root
 
 info "Installing frontend dependencies..."
-cd "$REPO_DIR/frontend"
+cd "$REPO_DIR/client"
 if command -v bun &>/dev/null; then
   bun install && bun run build
 else
@@ -197,7 +197,7 @@ else
 fi
 
 info "Building backend binary..."
-cd "$REPO_DIR/backend"
+cd "$REPO_DIR/server"
 go build -ldflags="-s -w" -o "$BINARY_PATH" .
 chmod +x "$BINARY_PATH"
 info "Binary installed at $BINARY_PATH"

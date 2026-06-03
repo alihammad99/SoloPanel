@@ -12,11 +12,13 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func randomToken() string {
+func RandomToken() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
+
+func randomToken() string { return RandomToken() }
 
 var DB *gorm.DB
 

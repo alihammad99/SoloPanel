@@ -17,9 +17,36 @@ import (
 	"github.com/panel/backend/services"
 )
 
+// portTakenByAnother returns true if any active app other than excludeID already has this port.
+func portTakenByAnother(port int, excludeID uint) bool {
+	if port == 0 {
+		return false
+	}
+	var count int64
+	db.DB.Model(&db.App{}).Where("port = ? AND id != ?", port, excludeID).Count(&count)
+	return count > 0
+}
+
+// populatePreviewURL fills in the computed preview_url field using sslip.io.
+// The port is always included so the URL works directly without Caddy.
+func populatePreviewURL(app *db.App) {
+	if app.PreviewSlug == "" || app.Port == 0 {
+		return
+	}
+	ip := services.GetPublicIP()
+	if ip == "" {
+		return
+	}
+	app.PreviewURL = fmt.Sprintf("http://%s:%d", services.PreviewDomain(app.PreviewSlug, ip), app.Port)
+}
+
 func handleListApps(w http.ResponseWriter, r *http.Request) {
 	var apps []db.App
 	db.DB.Find(&apps)
+	for i := range apps {
+		apps[i].DeployKeyPriv = ""
+		populatePreviewURL(&apps[i])
+	}
 	writeJSON(w, apps)
 }
 
@@ -88,12 +115,24 @@ func handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if portTakenByAnother(input.Port, 0) {
+		writeError(w, fmt.Sprintf("port %d is already assigned to another app", input.Port), http.StatusConflict)
+		return
+	}
+
 	claims := auth.GetClaims(r)
 
 	keyPair, err := services.GenerateSSHKeyPair("panel-" + input.Name)
 	if err != nil {
 		writeError(w, "key gen failed: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	privKeyToStore := keyPair.PrivateKey
+	if config.C.Encryption.Key != "" {
+		if enc, encErr := services.Encrypt(keyPair.PrivateKey, config.C.Encryption.Key); encErr == nil {
+			privKeyToStore = enc
+		}
 	}
 
 	envEnc := ""
@@ -110,7 +149,7 @@ func handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		RepoURL:       input.RepoURL,
 		Branch:        input.Branch,
 		DeployKeyPub:  keyPair.PublicKey,
-		DeployKeyPriv: keyPair.PrivateKey,
+		DeployKeyPriv: privKeyToStore,
 		Port:          input.Port,
 		Domain:        input.Domain,
 		EnvVarsEnc:    envEnc,
@@ -118,10 +157,14 @@ func handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		StartCmd:      input.StartCmd,
 		Status:        "idle",
 		UserID:        claims.UserID,
+		PreviewSlug:   input.Name + "-" + db.RandomToken()[:8],
 	}
 
+	// Hard-delete any previously soft-deleted app with the same name so the unique constraint doesn't block reuse
+	db.DB.Unscoped().Where("name = ? AND deleted_at IS NOT NULL", input.Name).Delete(&db.App{})
+
 	if err := db.DB.Create(&app).Error; err != nil {
-		writeError(w, "db create failed: "+err.Error(), http.StatusInternalServerError)
+		writeError(w, "an app named \""+input.Name+"\" already exists", http.StatusConflict)
 		return
 	}
 
@@ -129,7 +172,7 @@ func handleCreateApp(w http.ResponseWriter, r *http.Request) {
 	keyAdded := false
 	owner, repoName := parseRepoOwnerRepo(input.RepoURL)
 	if owner != "" && repoName != "" {
-		token := db.GetSetting("gh_token_" + claims.Username)
+		token := loadGHToken(claims.Username)
 		if token != "" {
 			if err := addDeployKeyToGitHub(owner, repoName, keyPair.PublicKey, token); err != nil {
 				fmt.Printf("[deploy-key-auto] failed for %s/%s: %v\n", owner, repoName, err)
@@ -156,6 +199,7 @@ func handleGetApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	app.DeployKeyPriv = ""
+	populatePreviewURL(&app)
 	writeJSON(w, app)
 }
 
@@ -185,6 +229,10 @@ func handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		updates["branch"] = *input.Branch
 	}
 	if input.Port != nil {
+		if portTakenByAnother(*input.Port, app.ID) {
+			writeError(w, fmt.Sprintf("port %d is already assigned to another app", *input.Port), http.StatusConflict)
+			return
+		}
 		updates["port"] = *input.Port
 	}
 	if input.Domain != nil {
@@ -210,6 +258,9 @@ func handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db.DB.Model(&app).Updates(updates)
+	db.DB.First(&app, app.ID)
+	app.DeployKeyPriv = ""
+	populatePreviewURL(&app)
 	writeJSON(w, app)
 }
 
@@ -220,6 +271,8 @@ func handleDeleteApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "not found", http.StatusNotFound)
 		return
 	}
+	// Stop process and clean up preview Caddy route
+	services.StopApp(app.ID)
 	db.DB.Delete(&app)
 	writeJSON(w, map[string]string{"message": "deleted"})
 }
@@ -320,6 +373,59 @@ func handleGetDeployKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"public_key": app.DeployKeyPub})
 }
 
+func handleCancelDeploy(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var app db.App
+	if err := db.DB.First(&app, id).Error; err != nil {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	services.CancelDeploy(app.ID)
+	writeJSON(w, map[string]string{"message": "cancel signal sent"})
+}
+
+func handleRollbackApp(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var app db.App
+	if err := db.DB.First(&app, id).Error; err != nil {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	flusher, _ := w.(http.Flusher)
+
+	ls := services.NewLogStreamer()
+	go func() {
+		if err := services.RollbackApp(&app, ls); err != nil {
+			ls.Write([]byte("[error] " + err.Error() + "\n"))
+		}
+		ls.Done()
+	}()
+
+	ch := ls.Subscribe()
+	for line := range ch {
+		w.Write([]byte("data: " + line + "\n\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+}
+
+func handleStopApp(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var app db.App
+	if err := db.DB.First(&app, id).Error; err != nil {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	services.StopApp(app.ID)
+	writeJSON(w, map[string]string{"message": "stopped"})
+}
+
 func handleDetectStack(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var app db.App
@@ -342,7 +448,7 @@ func handleAddDeployKeyToGithub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := db.GetSetting("gh_token_" + claims.Username)
+	token := loadGHToken(claims.Username)
 	if token == "" {
 		writeError(w, "no github token — log out and back in", http.StatusBadRequest)
 		return

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -200,11 +199,23 @@ func handleQuarantineFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Security: only allow quarantining files under apps dir or S3 storage dir
+	// Security: only allow quarantining files strictly under apps dir or storage dir
 	appsDir := config.C.Storage.AppsDir
 	storageDir := filepath.Join(filepath.Dir(config.C.DB.Path), ".storage")
 	abs, err := filepath.Abs(input.Path)
-	if err != nil || (!strings.HasPrefix(abs, appsDir) && !strings.HasPrefix(abs, storageDir)) {
+	if err != nil {
+		writeError(w, "path not allowed", http.StatusForbidden)
+		return
+	}
+	inApps := func() bool {
+		rel, e := filepath.Rel(appsDir, abs)
+		return e == nil && !strings.HasPrefix(rel, "..")
+	}()
+	inStorage := func() bool {
+		rel, e := filepath.Rel(storageDir, abs)
+		return e == nil && !strings.HasPrefix(rel, "..")
+	}()
+	if !inApps && !inStorage {
 		writeError(w, "path not allowed", http.StatusForbidden)
 		return
 	}
@@ -572,7 +583,3 @@ func nonEmpty(lines []string) []string {
 	}
 	return out
 }
-
-// Ensure io and bytes are used
-var _ = io.Discard
-var _ = bytes.NewBuffer
