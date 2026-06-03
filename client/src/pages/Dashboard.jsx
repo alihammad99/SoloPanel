@@ -24,7 +24,7 @@ function AppRow({ app }) {
     idle: 'badge-muted',
     failed: 'badge-danger',
     building: 'badge-warning',
-  }[app.status] || 'badge-muted'
+  }[app.Status] || 'badge-muted'
 
   return (
     <a href={`/apps/${app.ID}`} class="flex items-center gap-3 py-3 px-4 hover:bg-white/3 rounded-lg transition-colors group">
@@ -66,10 +66,10 @@ export function Dashboard() {
       </div>
 
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Rocket}    label="Total Apps"         value={apps.length}            color="#6366f1" href="/apps" />
-        <StatCard icon={Container} label="Running Containers" value={runningContainers}       color="#22c55e" href="/docker" />
-        <StatCard icon={Globe}     label="Domains"            value={domains.length}          color="#38bdf8" href="/domains" />
-        <StatCard icon={Archive}   label="Backups"            value={backups.length}          color="#f59e0b" href="/backups" />
+        <StatCard icon={Rocket} label="Total Apps" value={apps.length} color="#6366f1" href="/apps" />
+        <StatCard icon={Container} label="Running Containers" value={runningContainers} color="#22c55e" href="/docker" />
+        <StatCard icon={Globe} label="Domains" value={domains.length} color="#38bdf8" href="/domains" />
+        <StatCard icon={Archive} label="Backups" value={backups.length} color="#f59e0b" href="/backups" />
       </div>
 
       <div>

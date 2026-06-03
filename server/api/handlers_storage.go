@@ -65,7 +65,7 @@ func handleCreateBucket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "bucket already exists", http.StatusConflict)
 		return
 	}
-	os.MkdirAll(bucketDir(input.Name), 0755)
+	os.MkdirAll(bucketDir(input.Name), 0750)
 	writeJSON(w, bucket)
 }
 

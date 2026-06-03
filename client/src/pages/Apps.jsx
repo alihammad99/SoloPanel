@@ -550,6 +550,9 @@ export function AppDetail({ id }) {
   const [editEnv, setEditEnv] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deployKey, setDeployKey] = useState(null)
+  const [deploying, setDeploying] = useState(false)
+  const [deployID, setDeployID] = useState(null)
+  const [showLogs, setShowLogs] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -561,6 +564,17 @@ export function AppDetail({ id }) {
 
   if (!app) return <div class="text-panel-muted p-8">Loading…</div>
 
+  async function deploy() {
+    setDeploying(true)
+    const res = await api.apps.deploy(id)
+    setDeploying(false)
+    if (res?.deployment_id) {
+      setDeployID(res.deployment_id)
+      setShowLogs(true)
+      api.apps.deployments(id).then(d => setDeployments(d || []))
+    }
+  }
+
   async function saveEnv() {
     setSaving(true)
     await api.apps.update(id, { env_vars: env })
@@ -570,11 +584,27 @@ export function AppDetail({ id }) {
 
   return (
     <div class="space-y-6 max-w-3xl">
-      <div class="flex items-center gap-3">
-        <a href="/apps" class="text-panel-muted hover:text-white text-sm">← Apps</a>
-        <span class="text-panel-border">/</span>
-        <span class="text-white font-semibold">{app.Name}</span>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="/apps" class="text-panel-muted hover:text-white text-sm">← Apps</a>
+          <span class="text-panel-border">/</span>
+          <span class="text-white font-semibold">{app.Name}</span>
+        </div>
+        <button onClick={deploy} disabled={deploying} class="btn-primary text-sm">
+          <RefreshCw size={14} class={deploying ? 'animate-spin' : ''} />
+          {deploying ? 'Deploying…' : 'Deploy'}
+        </button>
       </div>
+
+      {showLogs && deployID && (
+        <div class="card space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-white text-sm">Live Deployment Log</h2>
+            <button onClick={() => setShowLogs(false)} class="text-panel-muted hover:text-white text-xs">Hide</button>
+          </div>
+          <LogViewer path={`/apps/${id}/deployments/${deployID}/log`} onDone={() => api.apps.get(id).then(setApp)} />
+        </div>
+      )}
 
       <div class="card space-y-4">
         <h2 class="font-semibold text-white">Configuration</h2>

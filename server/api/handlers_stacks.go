@@ -14,6 +14,9 @@ import (
 	"github.com/panel/backend/services"
 )
 
+// splitLines splits s on newlines without allocating a regexp.
+func splitLines(s string) []string { return strings.Split(s, "\n") }
+
 func handleListStacks(w http.ResponseWriter, r *http.Request) {
 	var stacks []db.DockerStack
 	db.DB.Find(&stacks)
@@ -116,9 +119,9 @@ func handleStartStack(w http.ResponseWriter, r *http.Request) {
 		plain, err := services.Decrypt(stack.EnvVarsEnc, config.C.Encryption.Key)
 		if err == nil {
 			for _, line := range splitLines(plain) {
-				parts := splitN(line, "=", 2)
+				parts := strings.SplitN(line, "=", 2)
 				if len(parts) == 2 {
-					envMap[trim(parts[0])] = trim(parts[1])
+					envMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 				}
 			}
 		}
@@ -207,47 +210,4 @@ func handleGetMarketplace(w http.ResponseWriter, r *http.Request) {
 func handleRefreshMarketplace(w http.ResponseWriter, r *http.Request) {
 	services.InvalidateTemplateCache()
 	writeJSON(w, map[string]string{"message": "cache cleared"})
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i, c := range s {
-		if c == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func splitN(s, sep string, n int) []string {
-	var result []string
-	for i := 0; i <= len(s)-len(sep); i++ {
-		if s[i:i+len(sep)] == sep {
-			result = append(result, s[:i])
-			s = s[i+len(sep):]
-			if len(result) == n-1 {
-				break
-			}
-			i = -1
-		}
-	}
-	result = append(result, s)
-	return result
-}
-
-func trim(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r' || s[start] == '\n') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\r' || s[end-1] == '\n') {
-		end--
-	}
-	return s[start:end]
 }

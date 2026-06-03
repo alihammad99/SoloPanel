@@ -168,12 +168,12 @@ func handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Branch   string `json:"branch"`
-		Port     int    `json:"port"`
-		Domain   string `json:"domain"`
-		EnvVars  string `json:"env_vars"`
-		BuildCmd string `json:"build_cmd"`
-		StartCmd string `json:"start_cmd"`
+		Branch   *string `json:"branch"`
+		Port     *int    `json:"port"`
+		Domain   *string `json:"domain"`
+		EnvVars  *string `json:"env_vars"`
+		BuildCmd *string `json:"build_cmd"`
+		StartCmd *string `json:"start_cmd"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, "invalid body", http.StatusBadRequest)
@@ -181,28 +181,32 @@ func handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updates := map[string]interface{}{}
-	if input.Branch != "" {
-		updates["branch"] = input.Branch
+	if input.Branch != nil {
+		updates["branch"] = *input.Branch
 	}
-	if input.Port != 0 {
-		updates["port"] = input.Port
+	if input.Port != nil {
+		updates["port"] = *input.Port
 	}
-	if input.Domain != "" {
-		updates["domain"] = input.Domain
+	if input.Domain != nil {
+		updates["domain"] = *input.Domain
 	}
-	if input.EnvVars != "" {
-		enc, err := services.Encrypt(input.EnvVars, config.C.Encryption.Key)
-		if err != nil {
-			writeError(w, "encrypt failed", http.StatusInternalServerError)
-			return
+	if input.EnvVars != nil {
+		enc := ""
+		if *input.EnvVars != "" {
+			var err error
+			enc, err = services.Encrypt(*input.EnvVars, config.C.Encryption.Key)
+			if err != nil {
+				writeError(w, "encrypt failed", http.StatusInternalServerError)
+				return
+			}
 		}
 		updates["env_vars_enc"] = enc
 	}
-	if input.BuildCmd != "" {
-		updates["build_cmd"] = input.BuildCmd
+	if input.BuildCmd != nil {
+		updates["build_cmd"] = *input.BuildCmd
 	}
-	if input.StartCmd != "" {
-		updates["start_cmd"] = input.StartCmd
+	if input.StartCmd != nil {
+		updates["start_cmd"] = *input.StartCmd
 	}
 
 	db.DB.Model(&app).Updates(updates)

@@ -66,6 +66,7 @@ export const api = {
     create: (b) => api.post('/stacks/', b),
     get: (id) => api.get(`/stacks/${id}`),
     delete: (id) => api.delete(`/stacks/${id}`),
+    start: (id) => api.post(`/stacks/${id}/start`, {}),
     stop: (id) => api.post(`/stacks/${id}/stop`, {}),
   },
 
@@ -84,6 +85,7 @@ export const api = {
   backups: {
     list: () => api.get('/backups/'),
     create: (b) => api.post('/backups/', b),
+    streamPath: (appID) => `/backups/stream${appID ? `?app_id=${appID}` : ''}`,
     initRestic: () => api.post('/backups/init', {}),
   },
 

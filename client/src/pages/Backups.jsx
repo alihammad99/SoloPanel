@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
-import { Archive, Plus, RotateCcw, Database, RefreshCw } from 'lucide-preact'
-import { api, streamSSE } from '../api/client'
+import { Archive, Plus, RotateCcw, RefreshCw } from 'lucide-preact'
+import { api } from '../api/client'
 import { LogViewer } from '../components/LogViewer'
 
 function BackupRow({ backup, onRestore }) {
@@ -35,18 +35,29 @@ function BackupRow({ backup, onRestore }) {
 function NewBackupModal({ onClose }) {
   const [apps, setApps] = useState([])
   const [appID, setAppID] = useState('')
-  const [running, setRunning] = useState(false)
-  const [logPath, setLogPath] = useState(null)
+  const [streaming, setStreaming] = useState(false)
+  const [streamPath, setStreamPath] = useState(null)
 
   useEffect(() => { api.apps.list().then(d => setApps(d || [])) }, [])
 
-  async function start() {
-    setRunning(true)
-    const body = {}
-    if (appID) body.app_id = Number(appID)
-    const res = await api.backups.create(body)
-    setRunning(false)
-    onClose()
+  function start() {
+    setStreamPath(api.backups.streamPath(appID))
+    setStreaming(true)
+  }
+
+  if (streaming && streamPath) {
+    return (
+      <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div class="card w-full max-w-2xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-white">Running Backup…</h2>
+            <button onClick={onClose} class="text-panel-muted hover:text-white text-xl">×</button>
+          </div>
+          <LogViewer path={streamPath} onDone={onClose} />
+          <button onClick={onClose} class="btn-ghost text-xs">Close</button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -69,9 +80,7 @@ function NewBackupModal({ onClose }) {
         </p>
         <div class="flex gap-3 justify-end">
           <button onClick={onClose} class="btn-ghost">Cancel</button>
-          <button onClick={start} disabled={running} class="btn-primary">
-            {running ? 'Starting…' : 'Start Backup'}
-          </button>
+          <button onClick={start} class="btn-primary">Start Backup</button>
         </div>
       </div>
     </div>
@@ -148,7 +157,7 @@ export function Backups() {
               <h3 class="font-semibold text-white">Restore {restoring.SnapshotID}</h3>
               <button onClick={() => setRestoring(null)} class="text-panel-muted hover:text-white text-xl">×</button>
             </div>
-            <LogViewer path={`/backups/${restoring.ID}/restore`} onDone={() => {}} />
+            <LogViewer path={`/backups/${restoring.ID}/restore`} onDone={() => { }} />
             <button onClick={() => setRestoring(null)} class="btn-ghost text-xs">Close</button>
           </div>
         </div>

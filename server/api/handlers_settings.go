@@ -11,6 +11,7 @@ import (
 func handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	keys := []string{
 		"s3_endpoint", "s3_bucket", "s3_region",
+		"s3_access_key", "s3_secret_key", "restic_password",
 		"registry_url",
 	}
 	result := map[string]string{}

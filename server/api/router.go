@@ -106,6 +106,7 @@ func NewRouter() http.Handler {
 			r.Route("/backups", func(r chi.Router) {
 				r.Get("/", handleListBackups)
 				r.Post("/", handleCreateBackup)
+				r.Get("/stream", handleStreamBackup)
 				r.Post("/{id}/restore", handleRestoreBackup)
 				r.Post("/init", handleInitRestic)
 			})

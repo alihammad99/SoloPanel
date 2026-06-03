@@ -22,10 +22,10 @@ import (
 
 // malwareSig with optional file-extension allowlist (nil = all extensions)
 type malwareSig struct {
-	Name      string
-	Severity  string
-	Pattern   *regexp.Regexp
-	OnlyExts  []string // if set, only match files with these extensions
+	Name           string
+	Severity       string
+	Pattern        *regexp.Regexp
+	OnlyExts       []string       // if set, only match files with these extensions
 	ExcludeComment *regexp.Regexp // skip line if it looks like a comment mentioning this
 }
 
@@ -33,17 +33,17 @@ var malwareSigs = []malwareSig{
 	// PHP-only: eval(base64_decode( — very specific, low FP
 	{Name: "PHP webshell (eval+base64)", Severity: "critical",
 		OnlyExts: []string{".php", ".php3", ".php4", ".php5", ".phtml"},
-		Pattern: regexp.MustCompile(`(?i)eval\s*\(\s*base64_decode\s*\(`)},
+		Pattern:  regexp.MustCompile(`(?i)eval\s*\(\s*base64_decode\s*\(`)},
 
 	// $_GET['x']($_POST['y']) — classic PHP shell dispatch
 	{Name: "PHP webshell (user-input dispatch)", Severity: "critical",
 		OnlyExts: []string{".php", ".php3", ".php4", ".php5", ".phtml"},
-		Pattern: regexp.MustCompile(`(?i)\$_(GET|POST|REQUEST|COOKIE)\s*\[.{0,40}\]\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)`)},
+		Pattern:  regexp.MustCompile(`(?i)\$_(GET|POST|REQUEST|COOKIE)\s*\[.{0,40}\]\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)`)},
 
 	// PHP shell execution — only in PHP files to avoid FP in docs/tests
 	{Name: "PHP shell execution", Severity: "critical",
 		OnlyExts: []string{".php", ".php3", ".php4", ".php5", ".phtml"},
-		Pattern: regexp.MustCompile(`(?i)(?:^|[^a-zA-Z_])(passthru|shell_exec|proc_open)\s*\(`)},
+		Pattern:  regexp.MustCompile(`(?i)(?:^|[^a-zA-Z_])(passthru|shell_exec|proc_open)\s*\(`)},
 
 	// /dev/tcp reverse shell — very specific, valid in shell scripts and strings
 	{Name: "Bash /dev/tcp reverse shell", Severity: "critical",
@@ -64,17 +64,17 @@ var malwareSigs = []malwareSig{
 	// xmrig/minerd binary references in scripts
 	{Name: "Crypto miner binary", Severity: "high",
 		OnlyExts: []string{".sh", ".bash", ".py", ".pl", ".rb"},
-		Pattern: regexp.MustCompile(`(?i)\b(xmrig|cpuminer|minerd|cgminer|bfgminer)\b`)},
+		Pattern:  regexp.MustCompile(`(?i)\b(xmrig|cpuminer|minerd|cgminer|bfgminer)\b`)},
 
 	// document.write(unescape( — classic JS obfuscation
 	{Name: "Obfuscated JS (document.write+unescape)", Severity: "high",
 		OnlyExts: []string{".js", ".html", ".htm"},
-		Pattern: regexp.MustCompile(`document\.write\s*\(\s*unescape\s*\(`)},
+		Pattern:  regexp.MustCompile(`document\.write\s*\(\s*unescape\s*\(`)},
 
 	// Perl reverse shell: use Socket + exec("/bin/sh")
 	{Name: "Perl reverse shell", Severity: "critical",
 		OnlyExts: []string{".pl"},
-		Pattern: regexp.MustCompile(`(?i)exec\s*\(\s*["/]bin/(ba)?sh`)},
+		Pattern:  regexp.MustCompile(`(?i)exec\s*\(\s*["/]bin/(ba)?sh`)},
 
 	// wget/curl | sh/bash — dropper pattern
 	{Name: "wget/curl dropper (pipe to shell)", Severity: "high",
@@ -87,7 +87,7 @@ var malwareSigs = []malwareSig{
 	// export LD_PRELOAD= (in scripts, not config files)
 	{Name: "LD_PRELOAD hijack", Severity: "high",
 		OnlyExts: []string{".sh", ".bash", ".py", ".pl", ".rb"},
-		Pattern: regexp.MustCompile(`(?i)export\s+LD_PRELOAD\s*=`)},
+		Pattern:  regexp.MustCompile(`(?i)export\s+LD_PRELOAD\s*=`)},
 }
 
 // Extensions to scan (focused — skip config/log/text to cut noise)
@@ -119,25 +119,25 @@ type ScanFinding struct {
 }
 
 type SecurityCheck struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"` // ok / warning / critical
-	Detail  string `json:"detail"`
+	Name   string `json:"name"`
+	Status string `json:"status"` // ok / warning / critical
+	Detail string `json:"detail"`
 }
 
 type ScanResult struct {
-	StartedAt  time.Time      `json:"started_at"`
-	FinishedAt time.Time      `json:"finished_at"`
-	Findings   []ScanFinding  `json:"findings"`
-	Checks     []SecurityCheck `json:"checks"`
-	ScannedFiles int           `json:"scanned_files"`
-	Error      string         `json:"error,omitempty"`
+	StartedAt    time.Time       `json:"started_at"`
+	FinishedAt   time.Time       `json:"finished_at"`
+	Findings     []ScanFinding   `json:"findings"`
+	Checks       []SecurityCheck `json:"checks"`
+	ScannedFiles int             `json:"scanned_files"`
+	Error        string          `json:"error,omitempty"`
 }
 
 // ── In-memory scan state ──────────────────────────────────────────────────────
 
 var (
-	scanMu     sync.Mutex
-	lastScan   *ScanResult
+	scanMu      sync.Mutex
+	lastScan    *ScanResult
 	scanRunning bool
 )
 
@@ -332,6 +332,9 @@ func scanDir(root string) (int, []ScanFinding) {
 					break // one finding per line
 				}
 			}
+		}
+		if err := buf.Err(); err != nil {
+			return err
 		}
 		return nil
 	})

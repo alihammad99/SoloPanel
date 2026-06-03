@@ -126,6 +126,80 @@ func handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleStreamBackup(w http.ResponseWriter, r *http.Request) {
+	var paths []string
+	var tags []string
+	var appID *uint
+	var stackID *uint
+
+	if v := r.URL.Query().Get("app_id"); v != "" {
+		var id uint
+		if _, err := fmt.Sscanf(v, "%d", &id); err == nil {
+			var app db.App
+			if err := db.DB.First(&app, id).Error; err != nil {
+				writeError(w, "app not found", http.StatusNotFound)
+				return
+			}
+			paths = append(paths, filepath.Join(config.C.Storage.AppsDir, app.Name))
+			tags = append(tags, "app="+app.Name)
+			appID = &id
+		}
+	} else if v := r.URL.Query().Get("stack_id"); v != "" {
+		var id uint
+		if _, err := fmt.Sscanf(v, "%d", &id); err == nil {
+			var stack db.DockerStack
+			if err := db.DB.First(&stack, id).Error; err != nil {
+				writeError(w, "stack not found", http.StatusNotFound)
+				return
+			}
+			paths = append(paths, filepath.Join(config.C.Storage.AppsDir, "stacks", stack.Name))
+			tags = append(tags, "stack="+stack.Name)
+			stackID = &id
+		}
+	} else {
+		paths = append(paths, config.C.Storage.AppsDir)
+		paths = append(paths, config.C.DB.Path)
+		tags = append(tags, "full-backup")
+	}
+
+	backup := db.Backup{
+		AppID:   appID,
+		StackID: stackID,
+		Tags:    joinStrings(tags, ","),
+		Status:  "running",
+	}
+	db.DB.Create(&backup)
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	flusher, _ := w.(http.Flusher)
+
+	ls := services.NewLogStreamer()
+	go func() {
+		snapshotID, err := services.ResticBackup(paths, tags, ls)
+		if err != nil {
+			ls.Write([]byte("[error] " + err.Error() + "\n"))
+			db.DB.Model(&backup).Updates(map[string]interface{}{"status": "failed"})
+		} else {
+			db.DB.Model(&backup).Updates(map[string]interface{}{
+				"snapshot_id": snapshotID,
+				"status":      "success",
+			})
+		}
+		ls.Done()
+	}()
+
+	ch := ls.Subscribe()
+	for line := range ch {
+		w.Write([]byte("data: " + line + "\n\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+}
+
 func handleInitRestic(w http.ResponseWriter, r *http.Request) {
 	ls := services.NewLogStreamer()
 	go func() {
